@@ -1,1 +1,1 @@
-# connect-four-rl
+# New reinforcement learning - connect-four-rl
