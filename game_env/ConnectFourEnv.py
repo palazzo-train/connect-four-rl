@@ -72,3 +72,6 @@ class ConnectFourEnv(gym.Env):
         # logging.info(f'get step hahahah. obs : {type(observation)},  obs shape : {observation.shape}')
 
         return observation, reward, terminated, truncated, info
+
+    def render(self, mode='human'):
+        logging.info(f'obs : {self.board_state}')

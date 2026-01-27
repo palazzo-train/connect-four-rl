@@ -73,7 +73,7 @@ def reforcement_main():
 
     # Set the global logging level to INFO
     rootLogger = logging.getLogger()
-    # rootLogger.setLevel(logging.WARNING)
+    rootLogger.setLevel(logging.WARNING)
 
     model = A2C("MlpPolicy", env, verbose=1)
     # model.learn(total_timesteps=25000)
@@ -83,7 +83,9 @@ def reforcement_main():
     del model  # remove to demonstrate saving and loading
 
 
+    rootLogger.setLevel(logging.INFO)
     logging.info(f"training finished")
+
     model = A2C.load("connect_four")
 
     obs , info = env.reset()
@@ -95,7 +97,7 @@ def reforcement_main():
         observation, reward, terminated, truncated, info = env.step(action)
 
         logging.info(f'step action: {action} , info: {info}')
-        # env.render("human")
+        env.render("human")
 
     logging.info(f'end')
 
