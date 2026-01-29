@@ -2,34 +2,33 @@ from typing import Optional, Any
 import numpy as np
 import gymnasium as gym
 import logging
-
-DEFAULT_BOARD_ROWS = 6
-DEFAULT_BOARD_COLS = 7
+from .GameEngine import GameEngine
 
 
 class ConnectFourEnv(gym.Env):
     GREEN_STONE = np.array([1, 0])
     RED_STONE = np.array([0, 1])
     BLANK_STONE = np.array([0, 0])
+
     STONE_STATE_NUM = 2
 
-    def __init__(self, size: tuple= (DEFAULT_BOARD_ROWS, DEFAULT_BOARD_COLS)):
+    def __init__(self):
         # The size of the grid (6x7 by default). i.e. 6 rows, 7 columns
-        self.board_size = size
-        self.board_state = np.zeros( [self.board_size[0], self.board_size[1], 2])
+        self.game_engine = GameEngine()
+        self.board_state = self.game_engine.create_board()
+        self.board_obs_state = np.zeros((ConnectFourEnv.STONE_STATE_NUM,GameEngine.ROW_COUNT, GameEngine.COLUMN_COUNT))
 
         # Define what the agent can observe
         # Dict space gives us structured, human-readable observations
-        self.observation_space = gym.spaces.Box(0, 1, shape=(self.board_size[0],self.board_size[1], ConnectFourEnv.STONE_STATE_NUM), dtype=np.float32)   # [x, y] coordinates
+        self.observation_space = gym.spaces.Box(0, 1, shape=(ConnectFourEnv.STONE_STATE_NUM, self.game_engine.ROW_COUNT,self.game_engine.COLUMN_COUNT), dtype=np.float32)   # [x, y] coordinates
 
         # Define what actions are available (number of columns)
-        self.action_space = gym.spaces.Discrete(self.board_size[1])
+        self.action_space = gym.spaces.Discrete(self.game_engine.COLUMN_COUNT)
 
         self.reset()
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-        self.board_state = np.zeros( [self.board_size[0], self.board_size[1], 2])
-        self.board_state[:,:] = ConnectFourEnv.BLANK_STONE
+        self.board_state = self.game_engine.create_board()
 
         self.game_n_step = 0
         info = None
@@ -46,7 +45,10 @@ class ConnectFourEnv(gym.Env):
             dict: Observation with agent and target positions
         """
         # logging.info('get obs hahahah')
-        return self.board_state
+        self.board_obs_state[0, :, :] = (self.board_state == 1)
+        self.board_obs_state[1, :, :] = (self.board_state == 2)
+
+        return self.board_obs_state
 
     def step(self, action):
         """Execute one timestep within the environment.
