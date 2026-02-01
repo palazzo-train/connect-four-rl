@@ -11,6 +11,7 @@ OPTIONS_ENV_TRAINER_MODEL = 'OPTIONS_ENV_TRAINER_MODEL'
 
 
 EXPLORATION_RATE = 0.5
+ENV_FIRST_MOVE_RATE = 0.5
 
 REWARD_NON_ENV_WIN = 0.6
 REWARD_NON_ENV_INVALID_MOVE = -1.0
@@ -67,8 +68,18 @@ class ConnectFourEnv(gym.Env):
 
         self.game_n_step = 0
 
-        info = { OPTIONS_ENV_PIECE_COLOUR: self.game_env_piece_colour}
 
+        self.first_move = 'non env'
+        ### does Env place the first move?
+        random_number = random.random()
+        if random_number < ENV_FIRST_MOVE_RATE:
+            ### env first
+            valid_locations = GameEngine.get_valid_locations(self.board_state)
+            env_first_action_col = random.choice(valid_locations)
+            GameEngine.drop_piece_from_top(self.board_state, env_first_action_col, self.game_env_piece_colour)
+            self.first_move = 'env'
+
+        info = { OPTIONS_ENV_PIECE_COLOUR: self.game_env_piece_colour, 'first_move': self.first_move}
         return self._get_obs(), info
 
 
@@ -279,7 +290,8 @@ class ConnectFourEnv(gym.Env):
         observation = self._get_obs()
         info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
                  'env_valid_move' : is_env_valid_move, 'non_env_valid_move' : is_non_env_valid_move , 'is_draw' : is_draw ,
-                 'miss_must_win' : miss_must_win , 'miss_must_defense': miss_must_defense }
+                 'miss_must_win' : miss_must_win , 'miss_must_defense': miss_must_defense ,
+                 'first_move': self.first_move}
 
         # logging.info(f' observation : \n{observation}')
         return observation, reward, terminated, truncated, info
