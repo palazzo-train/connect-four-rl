@@ -14,7 +14,16 @@ from stable_baselines3.common.utils import get_device
 
 
 MODEL_NAME_TRAINED = "connect_four"
-MODEL_NAME_ENV_TRAINER = "connect_four_env_trainer"
+
+
+# PARAMETER_EVAL_RUN_COUNT = 100
+# PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 1000
+# PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 1
+
+PARAMETER_EVAL_RUN_COUNT = 10000
+PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
+PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 10
+
 
 def init_system():
     logging.info(f'torch version {torch.version.cuda}')
@@ -46,28 +55,52 @@ def setupLogging():
     rootLogger.setLevel(logging.INFO)
 
 
-def training_phase(env_trainer_model):
+def training_phase():
+    # rootLogger = logging.getLogger()
+    # rootLogger.setLevel(logging.WARNING)
+
+    for i in range(PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION):
+        # model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i)}'
+        model_name = MODEL_NAME_TRAINED
+        logging.info(f'training iteration {i}. loading env trainer model [{model_name}]')
+        env_trainer_model = A2C.load(model_name)
+
+        env = ConnectFourEnv.ConnectFourEnv()
+        env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+        agent_model = A2C.load(model_name, env=env)
+
+
+        # new_model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i+ 1)}'
+        new_model_name = MODEL_NAME_TRAINED
+
+        training_iteration(agent_model, env_trainer_model, i, new_model_name)
+        del env_trainer_model
+        del agent_model
+        logging.info(f'saved new model [{new_model_name}]')
+
+    return new_model_name
+
+
+def training_iteration(agent_model, env_trainer_model, training_iter, new_model_name):
+
     # Set the global logging level to INFO
     rootLogger = logging.getLogger()
     rootLogger.setLevel(logging.WARNING)
 
-    env = ConnectFourEnv.ConnectFourEnv()
-    env.reset(options= { ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL:  env_trainer_model})
-
-    model = A2C("MlpPolicy", env, verbose=1, policy_kwargs={'net_arch': [128, 128, 128]})
+    # model = A2C("MlpPolicy", env, verbose=1, policy_kwargs={'net_arch': [128, 128, 128]})
+    model = agent_model
 
     logging.info(f'model: {model.policy}')
     # model.learn(total_timesteps=25000)
     # model.learn(total_timesteps=50000)
-    model.learn(total_timesteps=1000)
-    model.save(MODEL_NAME_TRAINED)
+    model.learn(total_timesteps= PARAMETER_MODEL_TRAINING_ITERATION_COUNT)
+    model.save(new_model_name)
 
     del model  # remove to demonstrate saving and loading
 
     rootLogger.setLevel(logging.INFO)
     logging.info(f"training finished")
 
-    return env
 
 def evaluation_phase(env, env_trainer_model):
     logging.info(f'evaluation phase')
@@ -98,7 +131,9 @@ def evaluation_phase(env, env_trainer_model):
 
         return new_count, new_average
 
-    eval_game_count = 100
+    eval_game_count = PARAMETER_EVAL_RUN_COUNT
+    report_interval = eval_game_count / 10
+    report_interval_count = 0
     for i in range(eval_game_count):
         obs, info = env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
         terminated = False
@@ -108,6 +143,13 @@ def evaluation_phase(env, env_trainer_model):
             action, _states = model.predict(obs)
             observation, reward, terminated, truncated, info = env.step(action)
 
+        if report_interval_count > report_interval:
+            report_interval_count = 0
+            rootLogger.setLevel(logging.INFO)
+            logging.info(f'evaluation progress {i/eval_game_count * 100}%')
+            rootLogger.setLevel(logging.WARNING)
+        else:
+            report_interval_count += 1
 
         step = info['step']
         if info['non_env_win']:
@@ -163,18 +205,16 @@ def demo_phase(env, env_trainer_model):
         logging.info(f'step finish. reward : {reward}, action: {action} , info: {info}')
         env.render("human")
 
-def prepare_env_trainer_model():
-
-    logging.info(f'loading env trainer model')
-    env_trainer_model = A2C.load(MODEL_NAME_ENV_TRAINER)
-    return env_trainer_model
 
 def reinforcement_main():
     # environments
 
-    env_trainer_model = prepare_env_trainer_model()
+    new_model_name = training_phase()
 
-    env = training_phase(env_trainer_model)
+    env = ConnectFourEnv.ConnectFourEnv()
+    env_trainer_model = A2C.load(new_model_name)
+    env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+
     eval_info = evaluation_phase(env, env_trainer_model)
     logging.info(f'eval info: {eval_info}')
     demo_phase(env, env_trainer_model)
