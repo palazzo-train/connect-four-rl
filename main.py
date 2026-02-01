@@ -45,50 +45,25 @@ def setupLogging():
     rootLogger.setLevel(logging.INFO)
 
 
-def reforcement_main_test():
-
-    # Parallel environments
-    vec_env = make_vec_env("CartPole-v1", n_envs=4)
-
-    model = A2C("MlpPolicy", vec_env, verbose=1)
-    model.learn(total_timesteps=25000)
-    model.save("a2c_cartpole")
-
-    del model  # remove to demonstrate saving and loading
-
-    logging.info(f"training finished")
-    model = A2C.load("a2c_cartpole")
-
-    obs = vec_env.reset()
-    while True:
-        action, _states = model.predict(obs)
-        obs, rewards, dones, info = vec_env.step(action)
-        vec_env.render("human")
-
-def reforcement_main():
-    # reforcement_main_test()
-
-    # environments
-    env = ConnectFourEnv()
-
+def training_phase(env):
     # Set the global logging level to INFO
     rootLogger = logging.getLogger()
     rootLogger.setLevel(logging.WARNING)
 
-    model = A2C("MlpPolicy", env, verbose=1, policy_kwargs = { 'net_arch' : [128, 128, 128]})
+    model = A2C("MlpPolicy", env, verbose=1, policy_kwargs={'net_arch': [128, 128, 128]})
 
-    print(f'model: {model.policy}')
+    logging.info(f'model: {model.policy}')
     # model.learn(total_timesteps=25000)
-    # model.learn(total_timesteps=50000)
-    model.learn(total_timesteps=1000)
+    model.learn(total_timesteps=50000)
+    # model.learn(total_timesteps=1000)
     model.save("connect_four")
 
     del model  # remove to demonstrate saving and loading
 
-
     rootLogger.setLevel(logging.INFO)
     logging.info(f"training finished")
 
+def inference_phase(env):
     model = A2C.load("connect_four")
 
     obs , info = env.reset()
@@ -101,6 +76,15 @@ def reforcement_main():
 
         logging.info(f'step finish. reward : {reward}, action: {action} , info: {info}')
         env.render("human")
+
+def reforcement_main():
+    # environments
+    env = ConnectFourEnv()
+
+    training_phase(env)
+
+
+    inference_phase(env)
 
     logging.info(f'end')
 
