@@ -10,6 +10,8 @@ OPTIONS_ENV_PIECE_COLOUR = 'OPTIONS_ENV_PIECE_COLOUR'
 OPTIONS_ENV_TRAINER_MODEL = 'OPTIONS_ENV_TRAINER_MODEL'
 
 
+EXPLORATION_RATE = 0.5
+
 REWARD_NON_ENV_WIN = 0.6
 REWARD_NON_ENV_INVALID_MOVE = -1.0
 REWARD_DRAW = 0.5
@@ -188,12 +190,18 @@ class ConnectFourEnv(gym.Env):
 
     def _env_move_decision(self, valid_locations):
         if self.env_trainer_model:
-            obs = self._get_obs_for_env_trainer_model()
-            env_action_col, _states = self.env_trainer_model.predict(obs)
-            ### env trainer model can output invalid action, check
-            if not env_action_col in valid_locations:
+
+            random_number = random.random()
+            if random_number < EXPLORATION_RATE:
+                ## use random
                 env_action_col = random.choice(valid_locations)
-            # logging.info(f'env trainer model: action : {env_action_col}')
+            else:
+                obs = self._get_obs_for_env_trainer_model()
+                env_action_col, _states = self.env_trainer_model.predict(obs)
+                ### env trainer model can output invalid action, check
+                if not env_action_col in valid_locations:
+                    env_action_col = random.choice(valid_locations)
+                # logging.info(f'env trainer model: action : {env_action_col}')
         else:
             env_action_col = random.choice(valid_locations)
 

@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import argparse
 from game_env import ConnectFourEnv
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -16,20 +17,37 @@ from stable_baselines3.common.utils import get_device
 MODEL_NAME_TRAINED = "connect_four"
 
 
-## quick smoke test
-# PARAMETER_EVAL_RUN_COUNT = 100
-# PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 1000
-# PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 1
 
 ## quick train
 PARAMETER_EVAL_RUN_COUNT = 100
 PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 5000
 PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 2
 
-# PARAMETER_EVAL_RUN_COUNT = 1000
-# PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
-# PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 10
 
+
+def parameter_update(speed):
+    global PARAMETER_EVAL_RUN_COUNT
+    global PARAMETER_MODEL_TRAINING_ITERATION_COUNT
+    global PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION
+
+    logging.info(f'parameter update. speed: {speed} , type : {type(speed)}')
+
+    if speed == 0 :
+        PARAMETER_EVAL_RUN_COUNT = 100
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 1000
+        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 1
+    elif speed == 1 :
+        PARAMETER_EVAL_RUN_COUNT = 100
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 5000
+        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 2
+    elif speed == 2:
+        PARAMETER_EVAL_RUN_COUNT = 1000
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
+        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 4
+    elif speed == 3:
+        PARAMETER_EVAL_RUN_COUNT = 1000
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
+        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 10
 
 def init_system():
     logging.info(f'torch version {torch.version.cuda}')
@@ -68,7 +86,7 @@ def training_phase():
     for i in range(PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION):
         # model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i)}'
         model_name = MODEL_NAME_TRAINED
-        logging.info(f'training iteration {i}. loading env trainer model [{model_name}]')
+        logging.info(f'training iteration {i} of {PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION}. loading env trainer model [{model_name}]')
         env_trainer_model = A2C.load(model_name)
 
         env = ConnectFourEnv.ConnectFourEnv()
@@ -230,7 +248,15 @@ def reinforcement_main():
 if __name__ == "__main__":
     setupLogging()
 
+    parser = argparse.ArgumentParser(description='Connect Four.')
+    parser.add_argument("--mode", default='train', help='train, test, init')
+    parser.add_argument("--speed" , help='0,1,2' , default=0, type=int)
+    args = parser.parse_args()
+
+    parameter_update(args.speed)
+    logging.info(f'arguments: {args}')
     init_system()
+
 
     # supervised_main()
     reinforcement_main()
