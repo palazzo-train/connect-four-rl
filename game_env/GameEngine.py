@@ -27,6 +27,31 @@ class GameEngine:
         board = np.zeros((GameEngine.ROW_COUNT, GameEngine.COLUMN_COUNT))
         return board
 
+    @staticmethod
+    def try_drop_piece(board, col, piece):
+        is_game_win = False
+        is_valid_move = True
+
+        if GameEngine.is_valid_location(board, col):
+            row = GameEngine.get_next_open_row(board, col)
+            GameEngine.drop_piece(board, row, col, piece)
+
+            if GameEngine.winning_move(board, piece):
+                is_game_win = True
+
+        else:
+            # invalid move
+            is_valid_move = False
+
+        return is_valid_move, is_game_win
+
+    @staticmethod
+    def get_valid_locations(board):
+        valid_locations = []
+        for col in range(GameEngine.COLUMN_COUNT):
+            if GameEngine.is_valid_location(board, col):
+                valid_locations.append(col)
+        return valid_locations
 
     @staticmethod
     def drop_piece(board, row, col, piece):
@@ -74,27 +99,27 @@ class GameEngine:
                     c + 3] == piece:
                     return True
 
-    @staticmethod
-    def print_board(board):
-        print(np.flip(board, 0))
-
-    @staticmethod
-    def draw_board(board):
-        for c in range(GameEngine.COLUMN_COUNT):
-            for r in range(GameEngine.ROW_COUNT):
-                pygame.draw.rect(screen, BLUE, (c * SQUARESIZE, r * SQUARESIZE + SQUARESIZE, SQUARESIZE, SQUARESIZE))
-                pygame.draw.circle(screen, BLACK, (int(c * SQUARESIZE + SQUARESIZE / 2),
-                                                   int(r * SQUARESIZE + SQUARESIZE + SQUARESIZE / 2)), RADIUS)
-
-        for c in range(COLUMN_COUNT):
-            for r in range(ROW_COUNT):
-                if board[r][c] == 1:
-                    pygame.draw.circle(screen, RED, (int(c * SQUARESIZE + SQUARESIZE / 2),
-                                                     height - int(r * SQUARESIZE + SQUARESIZE / 2)), RADIUS)
-                elif board[r][c] == 2:
-                    pygame.draw.circle(screen, YELLOW, (int(c * SQUARESIZE + SQUARESIZE / 2),
-                                                        height - int(r * SQUARESIZE + SQUARESIZE / 2)), RADIUS)
-        pygame.display.update()
+    # @staticmethod
+    # def print_board(board):
+    #     print(np.flip(board, 0))
+    #
+    # @staticmethod
+    # def draw_board(board):
+    #     for c in range(GameEngine.COLUMN_COUNT):
+    #         for r in range(GameEngine.ROW_COUNT):
+    #             pygame.draw.rect(screen, BLUE, (c * SQUARESIZE, r * SQUARESIZE + SQUARESIZE, SQUARESIZE, SQUARESIZE))
+    #             pygame.draw.circle(screen, BLACK, (int(c * SQUARESIZE + SQUARESIZE / 2),
+    #                                                int(r * SQUARESIZE + SQUARESIZE + SQUARESIZE / 2)), RADIUS)
+    #
+    #     for c in range(COLUMN_COUNT):
+    #         for r in range(ROW_COUNT):
+    #             if board[r][c] == 1:
+    #                 pygame.draw.circle(screen, RED, (int(c * SQUARESIZE + SQUARESIZE / 2),
+    #                                                  height - int(r * SQUARESIZE + SQUARESIZE / 2)), RADIUS)
+    #             elif board[r][c] == 2:
+    #                 pygame.draw.circle(screen, YELLOW, (int(c * SQUARESIZE + SQUARESIZE / 2),
+    #                                                     height - int(r * SQUARESIZE + SQUARESIZE / 2)), RADIUS)
+    #     pygame.display.update()
 
 
 # board = create_board()

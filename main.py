@@ -96,7 +96,7 @@ def reforcement_main():
         action, _states = model.predict(obs)
         observation, reward, terminated, truncated, info = env.step(action)
 
-        logging.info(f'step action: {action} , info: {info}')
+        logging.info(f'step finish. reward : {reward}, action: {action} , info: {info}')
         env.render("human")
 
     logging.info(f'end')

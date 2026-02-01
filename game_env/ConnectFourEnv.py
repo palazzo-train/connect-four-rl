@@ -2,7 +2,9 @@ from typing import Optional, Any
 import numpy as np
 import gymnasium as gym
 import logging
+import random
 from .GameEngine import GameEngine
+from. import Renderer
 
 OPTIONS_ENV_PIECE_COLOUR = 'OPTIONS_ENV_PIECE_COLOUR'
 
@@ -26,9 +28,7 @@ class ConnectFourEnv(gym.Env):
         self.observation_space = gym.spaces.Box(0, 1, shape=(ConnectFourEnv.STONE_STATE_NUM, self.game_engine.ROW_COUNT,self.game_engine.COLUMN_COUNT), dtype=np.float32)   # [x, y] coordinates
 
         # Define what actions are available (number of columns)
-        self.action_space = gym.spaces.Discrete(self.game_engine.COLUMN_COUNT)
-
-        # default game state
+        self.action_space = gym.spaces.Discrete(self.game_engine.COLUMN_COUNT)        # default game state
         self.game_env_piece_colour = GameEngine.RED_PIECE
         self.game_non_env_piece_colour = GameEngine.GREEN_PIECE
         self.game_n_step = 0
@@ -80,16 +80,64 @@ class ConnectFourEnv(gym.Env):
         reward = -0.01
         terminated = False
         truncated = False
-        info = { 'step' : self.game_n_step}
-        observation = self.board_state
 
-        if self.game_n_step > 10 :
+        is_env_game_win = False
+        is_env_valid_move = False
+        is_non_env_game_win = False
+        is_non_env_valid_move = False
+        is_draw = False
+
+        logging.info(f'---- new step -----')
+        logging.info(f'non env action : {action}')
+
+        ## non env move
+        valid_locations = GameEngine.get_valid_locations(self.board_state)
+        if len(valid_locations) == 0 :  ### no possible move
+            is_draw = True
+            reward = 0.5
             terminated = True
-            reward = 1
+        else:
+            is_non_env_valid_move, is_non_env_game_win = GameEngine.try_drop_piece(self.board_state, action, self.game_non_env_piece_colour)
+            if not is_non_env_valid_move:
+                terminated = True
+                reward = -1.0
+            elif is_non_env_game_win: ## non env win the game
+                    terminated = True
+                    reward = 1.0
+            else:
+                ## non env completed the move, now it is the env's turn to response
+                # env_action = column = random.choice(valid_locations)
+                valid_locations = GameEngine.get_valid_locations(self.board_state)
+                if len(valid_locations) == 0:  ### no possible move
+                    is_draw = True
+                    reward = 0.5
+                    terminated = True
+                else:
+                    env_action_col = random.choice(valid_locations)
+                    # logging.info(f'env action : {env_action_col}')
+                    is_env_valid_move, is_env_game_win = GameEngine.try_drop_piece(self.board_state, env_action_col, self.game_env_piece_colour)
 
-        # logging.info(f'get step hahahah. obs : {type(observation)},  obs shape : {observation.shape}')
+                    if not is_env_valid_move:
+                        terminated = True
+                        reward = 0.5
 
+                    elif is_env_game_win: ## env win the game
+                        terminated = True
+                        reward = -1.0
+
+                    else:
+                        if self.game_n_step > 20 :
+                            terminated = True
+                            reward = 1
+                        else:
+                            reward = -0.01
+
+        observation = self._get_obs()
+        info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
+                 'env_valid_move' : is_env_valid_move, 'non_env_valid_move' : is_non_env_valid_move , 'is_draw' : is_draw }
+
+        # logging.info(f'reward : {reward}, info : {info}')
         return observation, reward, terminated, truncated, info
 
     def render(self, mode='human'):
-        logging.info(f'obs : {self.board_state}')
+        Renderer.render(self.board_state, mode)
