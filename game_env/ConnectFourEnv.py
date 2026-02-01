@@ -136,6 +136,7 @@ class ConnectFourEnv(gym.Env):
         info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
                  'env_valid_move' : is_env_valid_move, 'non_env_valid_move' : is_non_env_valid_move , 'is_draw' : is_draw }
 
+        # logging.info(f' observation : \n{observation}')
         # logging.info(f'reward : {reward}, info : {info}')
         return observation, reward, terminated, truncated, info
 

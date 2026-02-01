@@ -75,9 +75,11 @@ def reforcement_main():
     rootLogger = logging.getLogger()
     rootLogger.setLevel(logging.WARNING)
 
-    model = A2C("MlpPolicy", env, verbose=1)
+    model = A2C("MlpPolicy", env, verbose=1, policy_kwargs = { 'net_arch' : [128, 128, 128]})
+
+    print(f'model: {model.policy}')
     # model.learn(total_timesteps=25000)
-    model.learn(total_timesteps=1000)
+    model.learn(total_timesteps=50000)
     model.save("connect_four")
 
     del model  # remove to demonstrate saving and loading
