@@ -13,6 +13,7 @@ OPTIONS_ENV_TRAINER_MODEL = 'OPTIONS_ENV_TRAINER_MODEL'
 EXPLORATION_RATE = 0.5
 ENV_FIRST_MOVE_RATE = 0.5
 
+REWARD_NORMAL_MOVE = -0.01
 REWARD_NON_ENV_WIN = 0.6
 REWARD_NON_ENV_INVALID_MOVE = -1.0
 REWARD_DRAW = 0.5
@@ -149,7 +150,7 @@ class ConnectFourEnv(gym.Env):
         is_non_env_game_win = False
         terminated = False
         is_draw = False
-        reward = 0.0
+        reward = REWARD_NORMAL_MOVE
         miss_must_win = False
         miss_must_defense = False
         non_env_valid_move = True
@@ -243,7 +244,7 @@ class ConnectFourEnv(gym.Env):
         """
         self.game_n_step = self.game_n_step + 1
 
-        reward = -0.01
+        reward = REWARD_NORMAL_MOVE
         terminated = False
         truncated = False
 
@@ -263,6 +264,7 @@ class ConnectFourEnv(gym.Env):
         terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, is_non_env_valid_move = self._non_env_move(action, self.game_n_step)
 
         if not terminated:
+            reward = REWARD_NORMAL_MOVE
             ###
             ### response by env. env's turn to move
             ###
@@ -282,10 +284,11 @@ class ConnectFourEnv(gym.Env):
 
                     terminated = True
 
-                ## new valid location after env response
-                valid_locations = GameEngine.get_valid_locations(self.board_state)
-                if len(valid_locations) == 0:  ### no possible move, draw
-                    is_draw, reward, terminated = True, REWARD_DRAW , True
+                else:
+                    ## new valid location after env response
+                    valid_locations = GameEngine.get_valid_locations(self.board_state)
+                    if len(valid_locations) == 0:  ### no possible move, draw
+                        is_draw, reward, terminated = True, REWARD_DRAW , True
 
         observation = self._get_obs()
         info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
