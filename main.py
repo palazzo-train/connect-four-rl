@@ -7,12 +7,13 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import torch
 
-
 import gymnasium as gym
 from stable_baselines3 import A2C
 from stable_baselines3.common.env_util import make_vec_env
-
 from stable_baselines3.common.utils import get_device
+
+
+MODEL_NAME_TRAINED = "connect_four"
 
 
 def init_system():
@@ -56,7 +57,7 @@ def training_phase(env):
     # model.learn(total_timesteps=25000)
     model.learn(total_timesteps=50000)
     # model.learn(total_timesteps=1000)
-    model.save("connect_four")
+    model.save(MODEL_NAME_TRAINED)
 
     del model  # remove to demonstrate saving and loading
 
@@ -64,7 +65,7 @@ def training_phase(env):
     logging.info(f"training finished")
 
 def inference_phase(env):
-    model = A2C.load("connect_four")
+    model = A2C.load(MODEL_NAME_TRAINED)
 
     obs , info = env.reset()
     terminated = False
@@ -77,13 +78,11 @@ def inference_phase(env):
         logging.info(f'step finish. reward : {reward}, action: {action} , info: {info}')
         env.render("human")
 
-def reforcement_main():
+def reinforcement_main():
     # environments
     env = ConnectFourEnv()
 
     training_phase(env)
-
-
     inference_phase(env)
 
     logging.info(f'end')
@@ -94,4 +93,4 @@ if __name__ == "__main__":
     init_system()
 
     # supervised_main()
-    reforcement_main()
+    reinforcement_main()
