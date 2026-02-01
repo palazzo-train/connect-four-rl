@@ -69,7 +69,87 @@ def training_phase(env_trainer_model):
 
     return env
 
-def inference_phase(env, env_trainer_model):
+def evaluation_phase(env, env_trainer_model):
+    logging.info(f'evaluation phase')
+    model = A2C.load(MODEL_NAME_TRAINED)
+
+    rootLogger = logging.getLogger()
+    rootLogger.setLevel(logging.WARNING)
+
+    win_count = 0
+    loss_count = 0
+    draw_count = 0
+
+    win_average_steps = 0
+    win_smallest_steps = 100
+    loss_average_steps = 0
+    loss_smallest_steps = 100
+    draw_average_steps = 0
+    invalid_move_count = 0
+    miss_must_win_count = 0
+    miss_must_defense_count = 0
+
+    def running_average(step, prev_average, prev_count):
+        new_count = prev_count + 1
+        if prev_average == 0 :
+           new_average = step
+        else:
+            new_average = prev_average * prev_count / new_count + step / new_count
+
+        return new_count, new_average
+
+    eval_game_count = 100
+    for i in range(eval_game_count):
+        obs, info = env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+        terminated = False
+        truncated = False
+
+        while (not terminated) and (not truncated):
+            action, _states = model.predict(obs)
+            observation, reward, terminated, truncated, info = env.step(action)
+
+
+        step = info['step']
+        if info['non_env_win']:
+            win_count, win_average_steps = running_average(step, win_average_steps, win_count)
+            if step < win_smallest_steps :
+                win_smallest_steps = step
+
+        if info['env_win']:
+            loss_count, loss_average_steps = running_average(step, loss_average_steps, loss_count)
+            if step < loss_smallest_steps :
+                loss_smallest_steps = step
+
+        if info['is_draw']:
+            draw_count, draw_average_steps = running_average(step, draw_average_steps, draw_count)
+
+        if not info['non_env_valid_move'] :
+            invalid_move_count = invalid_move_count + 1
+
+        if info['miss_must_win']:
+            miss_must_win_count = miss_must_win_count + 1
+
+        if info['miss_must_defense']:
+            miss_must_defense_count = miss_must_defense_count + 1
+
+    rootLogger.setLevel(logging.INFO)
+    eval_info = {
+            'win_count' : win_count ,
+            'loss_count' : loss_count ,
+            'draw_count' : draw_count ,
+            'win_average_steps' : win_average_steps ,
+            'win_smallest_steps' : win_smallest_steps  ,
+            'loss_average_steps' : loss_average_steps ,
+            'loss_smallest_steps' : loss_smallest_steps  ,
+            'draw_average_steps' : draw_average_steps ,
+            'invalid_move_count' : invalid_move_count ,
+            'miss_must_win_count' : miss_must_win_count ,
+            'miss_must_defense_count' : miss_must_defense_count }
+
+    return eval_info
+
+
+def demo_phase(env, env_trainer_model):
     model = A2C.load(MODEL_NAME_TRAINED)
 
     obs , info = env.reset(options= { ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL:  env_trainer_model})
@@ -95,7 +175,9 @@ def reinforcement_main():
     env_trainer_model = prepare_env_trainer_model()
 
     env = training_phase(env_trainer_model)
-    inference_phase(env, env_trainer_model)
+    eval_info = evaluation_phase(env, env_trainer_model)
+    logging.info(f'eval info: {eval_info}')
+    demo_phase(env, env_trainer_model)
 
     logging.info(f'end')
 

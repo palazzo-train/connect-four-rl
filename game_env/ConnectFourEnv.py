@@ -166,6 +166,9 @@ class ConnectFourEnv(gym.Env):
         if self.env_trainer_model:
             obs = self._get_obs_for_env_trainer_model()
             env_action_col, _states = self.env_trainer_model.predict(obs)
+            ### env trainer model can output invalid action, check
+            if not env_action_col in valid_locations:
+                env_action_col = random.choice(valid_locations)
             # logging.info(f'env trainer model: action : {env_action_col}')
         else:
             env_action_col = random.choice(valid_locations)
