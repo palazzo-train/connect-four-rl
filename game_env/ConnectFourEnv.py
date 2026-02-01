@@ -4,11 +4,14 @@ import gymnasium as gym
 import logging
 from .GameEngine import GameEngine
 
+OPTIONS_ENV_PIECE_COLOUR = 'OPTIONS_ENV_PIECE_COLOUR'
+
 
 class ConnectFourEnv(gym.Env):
-    GREEN_STONE = np.array([1, 0])
-    RED_STONE = np.array([0, 1])
-    BLANK_STONE = np.array([0, 0])
+    GREEN_PIECE_STATE = np.array([1, 0])
+    RED_PIECE_STATE = np.array([0, 1])
+    BLANK_PIECE_STATE = np.array([0, 0])
+
 
     STONE_STATE_NUM = 2
 
@@ -25,17 +28,28 @@ class ConnectFourEnv(gym.Env):
         # Define what actions are available (number of columns)
         self.action_space = gym.spaces.Discrete(self.game_engine.COLUMN_COUNT)
 
+        # default game state
+        self.game_env_piece_colour = GameEngine.RED_PIECE
+        self.game_non_env_piece_colour = GameEngine.GREEN_PIECE
+        self.game_n_step = 0
+
         self.reset()
 
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = { OPTIONS_ENV_PIECE_COLOUR : GameEngine.RED_PIECE }):
         self.board_state = self.game_engine.create_board()
 
+        self.game_env_piece_colour = options.get(OPTIONS_ENV_PIECE_COLOUR, GameEngine.RED_PIECE)
+
+        if self.game_env_piece_colour == GameEngine.RED_PIECE:
+            self.game_non_env_piece_colour = GameEngine.GREEN_PIECE
+        else:
+            self.game_non_env_piece_colour = GameEngine.RED_PIECE
+
         self.game_n_step = 0
-        info = None
 
-        # logging.info('reset hahahah')
+        info = { OPTIONS_ENV_PIECE_COLOUR: self.game_env_piece_colour}
 
-        return self.board_state , info
+        return self._get_obs(), info
 
 
     def _get_obs(self):
@@ -44,9 +58,11 @@ class ConnectFourEnv(gym.Env):
         Returns:
             dict: Observation with agent and target positions
         """
-        # logging.info('get obs hahahah')
-        self.board_obs_state[0, :, :] = (self.board_state == 1)
-        self.board_obs_state[1, :, :] = (self.board_state == 2)
+
+        # board_obs_state[0] == Player's piece board state,
+        # board_obs_state[1] == Env's piece board state
+        self.board_obs_state[0, :, :] = (self.board_state == self.game_non_env_piece_colour)
+        self.board_obs_state[1, :, :] = (self.board_state == self.game_env_piece_colour)
 
         return self.board_obs_state
 
