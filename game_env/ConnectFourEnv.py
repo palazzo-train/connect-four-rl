@@ -190,8 +190,21 @@ class ConnectFourEnv(gym.Env):
         return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
     def _env_move_decision(self, valid_locations):
-        if self.env_trainer_model:
+        ### no matter which decision model, first check must take action
+        ### check must-win col location
+        for action in valid_locations:
+            is_this_move_win = GameEngine.trial_drop_piece_from_top(self.board_state, action, self.game_env_piece_colour)
+            if is_this_move_win:
+                return action
 
+        ### check must-defense col location
+        for action in valid_locations:
+            is_this_move_win = GameEngine.trial_drop_piece_from_top(self.board_state, action,
+                                                                    self.game_non_env_piece_colour)
+            if is_this_move_win:
+                return action
+
+        if self.env_trainer_model:
             random_number = random.random()
             if random_number < EXPLORATION_RATE:
                 ## use random
