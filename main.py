@@ -42,9 +42,13 @@ def parameter_update(speed):
         PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 2
     elif speed == 2:
         PARAMETER_EVAL_RUN_COUNT = 1000
-        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 20000
         PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 4
     elif speed == 3:
+        PARAMETER_EVAL_RUN_COUNT = 1000
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
+        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 4
+    elif speed == 4:
         PARAMETER_EVAL_RUN_COUNT = 1000
         PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 50000
         PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 10
@@ -250,7 +254,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Connect Four.')
     parser.add_argument("--mode", default='train', help='train, test, init')
-    parser.add_argument("--speed" , help='0,1,2' , default=0, type=int)
+    parser.add_argument("--speed" , help='0,1,2,3' , default=0, type=int)
     args = parser.parse_args()
 
     parameter_update(args.speed)
