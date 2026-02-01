@@ -1,7 +1,7 @@
 import os
 import sys
 import logging
-from game_env.ConnectFourEnv import ConnectFourEnv
+from game_env import ConnectFourEnv
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -14,7 +14,7 @@ from stable_baselines3.common.utils import get_device
 
 
 MODEL_NAME_TRAINED = "connect_four"
-
+MODEL_NAME_ENV_TRAINER = "connect_four_env_trainer"
 
 def init_system():
     logging.info(f'torch version {torch.version.cuda}')
@@ -46,17 +46,20 @@ def setupLogging():
     rootLogger.setLevel(logging.INFO)
 
 
-def training_phase(env):
+def training_phase(env_trainer_model):
     # Set the global logging level to INFO
     rootLogger = logging.getLogger()
     rootLogger.setLevel(logging.WARNING)
+
+    env = ConnectFourEnv.ConnectFourEnv()
+    env.reset(options= { ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL:  env_trainer_model})
 
     model = A2C("MlpPolicy", env, verbose=1, policy_kwargs={'net_arch': [128, 128, 128]})
 
     logging.info(f'model: {model.policy}')
     # model.learn(total_timesteps=25000)
-    model.learn(total_timesteps=50000)
-    # model.learn(total_timesteps=1000)
+    # model.learn(total_timesteps=50000)
+    model.learn(total_timesteps=1000)
     model.save(MODEL_NAME_TRAINED)
 
     del model  # remove to demonstrate saving and loading
@@ -64,10 +67,12 @@ def training_phase(env):
     rootLogger.setLevel(logging.INFO)
     logging.info(f"training finished")
 
-def inference_phase(env):
+    return env
+
+def inference_phase(env, env_trainer_model):
     model = A2C.load(MODEL_NAME_TRAINED)
 
-    obs , info = env.reset()
+    obs , info = env.reset(options= { ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL:  env_trainer_model})
     terminated = False
     truncated = False
 
@@ -78,12 +83,19 @@ def inference_phase(env):
         logging.info(f'step finish. reward : {reward}, action: {action} , info: {info}')
         env.render("human")
 
+def prepare_env_trainer_model():
+
+    logging.info(f'loading env trainer model')
+    env_trainer_model = A2C.load(MODEL_NAME_ENV_TRAINER)
+    return env_trainer_model
+
 def reinforcement_main():
     # environments
-    env = ConnectFourEnv()
 
-    training_phase(env)
-    inference_phase(env)
+    env_trainer_model = prepare_env_trainer_model()
+
+    env = training_phase(env_trainer_model)
+    inference_phase(env, env_trainer_model)
 
     logging.info(f'end')
 

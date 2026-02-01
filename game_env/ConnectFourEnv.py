@@ -7,6 +7,7 @@ from .GameEngine import GameEngine
 from. import Renderer
 
 OPTIONS_ENV_PIECE_COLOUR = 'OPTIONS_ENV_PIECE_COLOUR'
+OPTIONS_ENV_TRAINER_MODEL = 'OPTIONS_ENV_TRAINER_MODEL'
 
 
 class ConnectFourEnv(gym.Env):
@@ -22,6 +23,10 @@ class ConnectFourEnv(gym.Env):
         self.game_engine = GameEngine()
         self.board_state = self.game_engine.create_board()
         self.board_obs_state = np.zeros((ConnectFourEnv.STONE_STATE_NUM,GameEngine.ROW_COUNT, GameEngine.COLUMN_COUNT))
+        self.board_obs_state_for_env_trainer_model = np.zeros((ConnectFourEnv.STONE_STATE_NUM,GameEngine.ROW_COUNT, GameEngine.COLUMN_COUNT))
+
+        self.env_trainer_model = None
+
 
         # Define what the agent can observe
         # Dict space gives us structured, human-readable observations
@@ -35,9 +40,10 @@ class ConnectFourEnv(gym.Env):
 
         self.reset()
 
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = { OPTIONS_ENV_PIECE_COLOUR : GameEngine.RED_PIECE }):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = { OPTIONS_ENV_PIECE_COLOUR : GameEngine.RED_PIECE ,
+                                                                            OPTIONS_ENV_TRAINER_MODEL : None }):
         self.board_state = self.game_engine.create_board()
-
+        self.env_trainer_model = options.get(OPTIONS_ENV_TRAINER_MODEL, None)
         self.game_env_piece_colour = options.get(OPTIONS_ENV_PIECE_COLOUR, GameEngine.RED_PIECE)
 
         if self.game_env_piece_colour == GameEngine.RED_PIECE:
@@ -63,6 +69,20 @@ class ConnectFourEnv(gym.Env):
         # board_obs_state[1] == Env's piece board state
         self.board_obs_state[0, :, :] = (self.board_state == self.game_non_env_piece_colour)
         self.board_obs_state[1, :, :] = (self.board_state == self.game_env_piece_colour)
+
+        return self.board_obs_state
+
+    def _get_obs_for_env_trainer_model(self):
+        """Convert internal state to observation format.
+
+        Returns:
+            dict: Observation with agent and target positions
+        """
+
+        # board_obs_state[0] == Player's piece board state,
+        # board_obs_state[1] == Env's piece board state
+        self.board_obs_state_for_env_trainer_model[0, :, :] = (self.board_state == self.game_env_piece_colour)
+        self.board_obs_state_for_env_trainer_model[1, :, :] = (self.board_state == self.game_non_env_piece_colour)
 
         return self.board_obs_state
 
@@ -143,7 +163,13 @@ class ConnectFourEnv(gym.Env):
         return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
     def _env_move_decision(self, valid_locations):
-        env_action_col = random.choice(valid_locations)
+        if self.env_trainer_model:
+            obs = self._get_obs_for_env_trainer_model()
+            env_action_col, _states = self.env_trainer_model.predict(obs)
+            # logging.info(f'env trainer model: action : {env_action_col}')
+        else:
+            env_action_col = random.choice(valid_locations)
+
         return env_action_col
 
     def step(self, action):
