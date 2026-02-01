@@ -105,12 +105,15 @@ class ConnectFourEnv(gym.Env):
         terminated = False
         is_draw = False
         reward = 0.0
+        miss_must_win = False
+        miss_must_defense = False
+        non_env_valid_move = True
 
         if len(valid_locations) == 0 :  ### no possible move
             is_draw, reward, terminated = True, 0.7, True  ## draw
         elif not GameEngine.is_valid_location(self.board_state, action):
             # logging.info(f'invalid move by non env , action: {action}')
-            terminated , reward = True, -1.0  ## invalid move
+            terminated , reward , non_env_valid_move= True, -1.0, False ## invalid move
         else:
             ### check must-win col location
             exist_must_win, taken_right_move = self._check_must_win_location(action, self.game_non_env_piece_colour, valid_locations)
@@ -121,21 +124,23 @@ class ConnectFourEnv(gym.Env):
 
                 if taken_right_move:
                     is_non_env_game_win = GameEngine.drop_piece_from_top(self.board_state, action, self.game_non_env_piece_colour)
+                else:
+                    miss_must_win = True
 
-                return terminated, reward, is_draw, is_non_env_game_win
+                return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
             ###
             ### check must-defense col location, i.e. must-win of env_piece_colour
             exist_must_win, taken_right_move= self._check_must_win_location(action, self.game_env_piece_colour, valid_locations)
             if exist_must_win and not taken_right_move:
                 terminated, reward = True, -1.0  ## does not take must-defense move
-                return terminated, reward, is_draw, is_non_env_game_win
+                miss_must_defense = True
+                return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
             ### taken defensive move, continue
             GameEngine.drop_piece_from_top(self.board_state, action, self.game_non_env_piece_colour)
 
-        return terminated, reward, is_draw, is_non_env_game_win
-
+        return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
     def _env_move_decision(self, valid_locations):
         env_action_col = random.choice(valid_locations)
@@ -157,9 +162,11 @@ class ConnectFourEnv(gym.Env):
         truncated = False
 
         is_env_game_win = False
-        is_env_valid_move = False
+        is_env_valid_move = True
         is_non_env_game_win = False
         is_non_env_valid_move = False
+        miss_must_win = False
+        miss_must_defense = False
         is_draw = False
 
         logging.info(f'---- new step ----- , step number : {self.game_n_step}')
@@ -167,7 +174,8 @@ class ConnectFourEnv(gym.Env):
 
 
         ## non env move
-        terminated, reward, is_draw , is_non_env_game_win = self._non_env_move(action)
+        terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, is_non_env_valid_move = self._non_env_move(action)
+
         if not terminated:
             ### response by env. env's turn to move
             valid_locations = GameEngine.get_valid_locations(self.board_state)
@@ -176,6 +184,7 @@ class ConnectFourEnv(gym.Env):
             else:
                 ### env's to pick a move
                 env_action_col = self._env_move_decision(valid_locations)
+                logging.info(f'env action : {env_action_col}')
                 is_env_game_win = GameEngine.drop_piece_from_top(self.board_state, env_action_col, self.game_env_piece_colour)
 
                 if is_non_env_game_win:
@@ -188,7 +197,8 @@ class ConnectFourEnv(gym.Env):
 
         observation = self._get_obs()
         info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
-                 'env_valid_move' : is_env_valid_move, 'non_env_valid_move' : is_non_env_valid_move , 'is_draw' : is_draw }
+                 'env_valid_move' : is_env_valid_move, 'non_env_valid_move' : is_non_env_valid_move , 'is_draw' : is_draw ,
+                 'miss_must_win' : miss_must_win , 'miss_must_defense': miss_must_defense }
 
         # logging.info(f' observation : \n{observation}')
         return observation, reward, terminated, truncated, info
