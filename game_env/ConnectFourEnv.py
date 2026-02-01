@@ -10,6 +10,17 @@ OPTIONS_ENV_PIECE_COLOUR = 'OPTIONS_ENV_PIECE_COLOUR'
 OPTIONS_ENV_TRAINER_MODEL = 'OPTIONS_ENV_TRAINER_MODEL'
 
 
+REWARD_NON_ENV_WIN = 0.6
+REWARD_NON_ENV_INVALID_MOVE = -1.0
+REWARD_DRAW = 0.5
+REWARD_NON_ENV_LOSS = -0.6
+REWARD_NON_ENV_MISSED_MUST_WIN = -0.6
+REWARD_NON_ENV_MISSED_MUST_DEFENSE = -0.6
+REWARD_WINNING_EARLY_EXTRA = 0.35
+REWARD_LOSSING_EARLY_EXTRA = 0.35
+REWARD_MULTI_OPPORTUNITY_EXTRA = 0.15
+MAX_GAME_STEP = 21
+
 class ConnectFourEnv(gym.Env):
     GREEN_PIECE_STATE = np.array([1, 0])
     RED_PIECE_STATE = np.array([0, 1])
@@ -112,14 +123,15 @@ class ConnectFourEnv(gym.Env):
         # logging.info(f' check must win, must win location: {must_win_locations}, len : {len(must_win_locations)}')
         # logging.info(f' sddd action in must_win: {not (action in must_win_locations)}')
         ### if there exists must-win location but non env player not take that move
-        if (len(must_win_locations) > 0) and (not (action in must_win_locations)):
+        must_win_location_count = len(must_win_locations)
+        if (must_win_location_count > 0) and (not (action in must_win_locations)):
             exist_must_win = True
             taken_right_move = False
-            return exist_must_win, taken_right_move
+            return exist_must_win, taken_right_move, must_win_locations
 
-        return exist_must_win, taken_right_move
+        return exist_must_win, taken_right_move, must_win_location_count
 
-    def _non_env_move(self,action):
+    def _non_env_move(self,action, game_step):
         valid_locations = GameEngine.get_valid_locations(self.board_state)
         is_non_env_game_win = False
         terminated = False
@@ -130,30 +142,43 @@ class ConnectFourEnv(gym.Env):
         non_env_valid_move = True
 
         if len(valid_locations) == 0 :  ### no possible move
-            is_draw, reward, terminated = True, 0.7, True  ## draw
+            is_draw, reward, terminated = True, REWARD_DRAW , True  ## draw
         elif not GameEngine.is_valid_location(self.board_state, action):
             # logging.info(f'invalid move by non env , action: {action}')
-            terminated , reward , non_env_valid_move= True, -1.0, False ## invalid move
+            terminated , reward , non_env_valid_move= True, REWARD_NON_ENV_INVALID_MOVE , False ## invalid move
         else:
             ### check must-win col location
-            exist_must_win, taken_right_move = self._check_must_win_location(action, self.game_non_env_piece_colour, valid_locations)
+            exist_must_win, taken_right_move, must_win_location_count = self._check_must_win_location(action, self.game_non_env_piece_colour, valid_locations)
             # logging.info(f'exist must win : {exist_must_win},  taken_right_move : {taken_right_move}')
             if exist_must_win:
                 terminated = True
-                reward = 1.0 if taken_right_move else -1.0
 
                 if taken_right_move:
                     is_non_env_game_win = GameEngine.drop_piece_from_top(self.board_state, action, self.game_non_env_piece_colour)
+                    reward = REWARD_NON_ENV_WIN
+
+                    if must_win_location_count > 1 : ## more than one winning location
+                        reward += REWARD_MULTI_OPPORTUNITY_EXTRA * (must_win_location_count-1)
+
+                    reward += (MAX_GAME_STEP - game_step) / (MAX_GAME_STEP - 4) * REWARD_WINNING_EARLY_EXTRA
+
                 else:
                     miss_must_win = True
+                    reward = REWARD_NON_ENV_MISSED_MUST_WIN
+
+                    if must_win_location_count > 1:
+                        reward -= REWARD_MULTI_OPPORTUNITY_EXTRA * (must_win_location_count-1)
 
                 return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
             ###
             ### check must-defense col location, i.e. must-win of env_piece_colour
-            exist_must_win, taken_right_move= self._check_must_win_location(action, self.game_env_piece_colour, valid_locations)
+            exist_must_win, taken_right_move, must_win_location_count = self._check_must_win_location(action, self.game_env_piece_colour, valid_locations)
             if exist_must_win and not taken_right_move:
-                terminated, reward = True, -1.0  ## does not take must-defense move
+                reward = REWARD_NON_ENV_MISSED_MUST_DEFENSE - (REWARD_MULTI_OPPORTUNITY_EXTRA * must_win_location_count)
+                reward -= (MAX_GAME_STEP - self.game_n_step) / (MAX_GAME_STEP - 4) * REWARD_LOSSING_EARLY_EXTRA
+
+                terminated = True  ## does not take must-defense move
                 miss_must_defense = True
                 return terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, non_env_valid_move
 
@@ -203,26 +228,32 @@ class ConnectFourEnv(gym.Env):
 
 
         ## non env move
-        terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, is_non_env_valid_move = self._non_env_move(action)
+        terminated, reward, is_draw, is_non_env_game_win, miss_must_win, miss_must_defense, is_non_env_valid_move = self._non_env_move(action, self.game_n_step)
 
         if not terminated:
+            ###
             ### response by env. env's turn to move
+            ###
             valid_locations = GameEngine.get_valid_locations(self.board_state)
             if len(valid_locations) == 0:  ### no possible move, draw
-                is_draw , reward , terminated = True, 0.7, True
+                is_draw , reward , terminated = True, REWARD_DRAW, True
             else:
                 ### env's to pick a move
                 env_action_col = self._env_move_decision(valid_locations)
                 logging.info(f'env action : {env_action_col}')
                 is_env_game_win = GameEngine.drop_piece_from_top(self.board_state, env_action_col, self.game_env_piece_colour)
 
-                if is_non_env_game_win:
-                    reward ,terminated = -1.0, True
+                if is_env_game_win:
+                    reward = REWARD_NON_ENV_LOSS
+                    ### additional -ve reward if loss too early
+                    reward -= (MAX_GAME_STEP - self.game_n_step) / (MAX_GAME_STEP - 4 ) * REWARD_LOSSING_EARLY_EXTRA
+
+                    terminated = True
 
                 ## new valid location after env response
                 valid_locations = GameEngine.get_valid_locations(self.board_state)
                 if len(valid_locations) == 0:  ### no possible move, draw
-                    is_draw, reward, terminated = True, 0.7, True
+                    is_draw, reward, terminated = True, REWARD_DRAW , True
 
         observation = self._get_obs()
         info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
