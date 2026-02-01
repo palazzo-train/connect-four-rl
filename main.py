@@ -79,7 +79,8 @@ def reforcement_main():
 
     print(f'model: {model.policy}')
     # model.learn(total_timesteps=25000)
-    model.learn(total_timesteps=50000)
+    # model.learn(total_timesteps=50000)
+    model.learn(total_timesteps=1000)
     model.save("connect_four")
 
     del model  # remove to demonstrate saving and loading

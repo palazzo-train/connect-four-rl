@@ -28,22 +28,22 @@ class GameEngine:
         return board
 
     @staticmethod
-    def try_drop_piece(board, col, piece):
+    def drop_piece_from_top(board, col, piece):
         is_game_win = False
-        is_valid_move = True
 
-        if GameEngine.is_valid_location(board, col):
-            row = GameEngine.get_next_open_row(board, col)
-            GameEngine.drop_piece(board, row, col, piece)
+        row = GameEngine.get_next_open_row(board, col)
+        GameEngine.drop_piece(board, row, col, piece)
 
-            if GameEngine.winning_move(board, piece):
+        if GameEngine.winning_move(board, piece):
                 is_game_win = True
 
-        else:
-            # invalid move
-            is_valid_move = False
+        return is_game_win
 
-        return is_valid_move, is_game_win
+    @staticmethod
+    def trial_drop_piece_from_top(original_board, col, piece):
+
+        board = original_board.copy()
+        return GameEngine.drop_piece_from_top(board, col, piece)
 
     @staticmethod
     def get_valid_locations(board):

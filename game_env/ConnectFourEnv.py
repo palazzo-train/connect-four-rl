@@ -66,6 +66,81 @@ class ConnectFourEnv(gym.Env):
 
         return self.board_obs_state
 
+
+    def _check_must_win_location(self, action, piece, valid_locations):
+        taken_right_move = False
+        exist_must_win = False
+
+        # logging.info(f' check must win, valid location : {valid_locations}')
+        ###
+        ### check must win col location
+        must_win_locations = []
+        for trial_location in valid_locations:
+            is_this_move_win = GameEngine.trial_drop_piece_from_top(self.board_state, trial_location, piece)
+            # logging.info(f'  is this move win, : {is_this_move_win}, trial_location : {trial_location}')
+            if is_this_move_win:
+                if action == trial_location:
+                    ### non env makes the right move, can return
+                    is_non_env_game_win = GameEngine.trial_drop_piece_from_top(self.board_state, action, piece)
+                    taken_right_move = True
+                    exist_must_win = True
+                    # logging.info(f'  taken must win, valid location : {action}')
+                    return exist_must_win, taken_right_move
+
+                must_win_locations.append(trial_location)
+
+        # logging.info(f' check must win, must win location: {must_win_locations}, len : {len(must_win_locations)}')
+        # logging.info(f' sddd action in must_win: {not (action in must_win_locations)}')
+        ### if there exists must-win location but non env player not take that move
+        if (len(must_win_locations) > 0) and (not (action in must_win_locations)):
+            exist_must_win = True
+            taken_right_move = False
+            return exist_must_win, taken_right_move
+
+        return exist_must_win, taken_right_move
+
+    def _non_env_move(self,action):
+        valid_locations = GameEngine.get_valid_locations(self.board_state)
+        is_non_env_game_win = False
+        terminated = False
+        is_draw = False
+        reward = 0.0
+
+        if len(valid_locations) == 0 :  ### no possible move
+            is_draw, reward, terminated = True, 0.7, True  ## draw
+        elif not GameEngine.is_valid_location(self.board_state, action):
+            # logging.info(f'invalid move by non env , action: {action}')
+            terminated , reward = True, -1.0  ## invalid move
+        else:
+            ### check must-win col location
+            exist_must_win, taken_right_move = self._check_must_win_location(action, self.game_non_env_piece_colour, valid_locations)
+            # logging.info(f'exist must win : {exist_must_win},  taken_right_move : {taken_right_move}')
+            if exist_must_win:
+                terminated = True
+                reward = 1.0 if taken_right_move else -1.0
+
+                if taken_right_move:
+                    is_non_env_game_win = GameEngine.drop_piece_from_top(self.board_state, action, self.game_non_env_piece_colour)
+
+                return terminated, reward, is_draw, is_non_env_game_win
+
+            ###
+            ### check must-defense col location, i.e. must-win of env_piece_colour
+            exist_must_win, taken_right_move= self._check_must_win_location(action, self.game_env_piece_colour, valid_locations)
+            if exist_must_win and not taken_right_move:
+                terminated, reward = True, -1.0  ## does not take must-defense move
+                return terminated, reward, is_draw, is_non_env_game_win
+
+            ### taken defensive move, continue
+            GameEngine.drop_piece_from_top(self.board_state, action, self.game_non_env_piece_colour)
+
+        return terminated, reward, is_draw, is_non_env_game_win
+
+
+    def _env_move_decision(self, valid_locations):
+        env_action_col = random.choice(valid_locations)
+        return env_action_col
+
     def step(self, action):
         """Execute one timestep within the environment.
 
@@ -87,57 +162,35 @@ class ConnectFourEnv(gym.Env):
         is_non_env_valid_move = False
         is_draw = False
 
-        logging.info(f'---- new step -----')
+        logging.info(f'---- new step ----- , step number : {self.game_n_step}')
         logging.info(f'non env action : {action}')
 
+
         ## non env move
-        valid_locations = GameEngine.get_valid_locations(self.board_state)
-        if len(valid_locations) == 0 :  ### no possible move
-            is_draw = True
-            reward = 0.5
-            terminated = True
-        else:
-            is_non_env_valid_move, is_non_env_game_win = GameEngine.try_drop_piece(self.board_state, action, self.game_non_env_piece_colour)
-            if not is_non_env_valid_move:
-                terminated = True
-                reward = -1.0
-            elif is_non_env_game_win: ## non env win the game
-                    terminated = True
-                    reward = 1.0
+        terminated, reward, is_draw , is_non_env_game_win = self._non_env_move(action)
+        if not terminated:
+            ### response by env. env's turn to move
+            valid_locations = GameEngine.get_valid_locations(self.board_state)
+            if len(valid_locations) == 0:  ### no possible move, draw
+                is_draw , reward , terminated = True, 0.7, True
             else:
-                ## non env completed the move, now it is the env's turn to response
-                # env_action = column = random.choice(valid_locations)
+                ### env's to pick a move
+                env_action_col = self._env_move_decision(valid_locations)
+                is_env_game_win = GameEngine.drop_piece_from_top(self.board_state, env_action_col, self.game_env_piece_colour)
+
+                if is_non_env_game_win:
+                    reward ,terminated = -1.0, True
+
+                ## new valid location after env response
                 valid_locations = GameEngine.get_valid_locations(self.board_state)
-                if len(valid_locations) == 0:  ### no possible move
-                    is_draw = True
-                    reward = 0.5
-                    terminated = True
-                else:
-                    env_action_col = random.choice(valid_locations)
-                    # logging.info(f'env action : {env_action_col}')
-                    is_env_valid_move, is_env_game_win = GameEngine.try_drop_piece(self.board_state, env_action_col, self.game_env_piece_colour)
-
-                    if not is_env_valid_move:
-                        terminated = True
-                        reward = 0.5
-
-                    elif is_env_game_win: ## env win the game
-                        terminated = True
-                        reward = -1.0
-
-                    else:
-                        if self.game_n_step > 20 :
-                            terminated = True
-                            reward = 1
-                        else:
-                            reward = -0.01
+                if len(valid_locations) == 0:  ### no possible move, draw
+                    is_draw, reward, terminated = True, 0.7, True
 
         observation = self._get_obs()
         info = { 'step' : self.game_n_step, 'env_win': is_env_game_win, 'non_env_win' : is_non_env_game_win,
                  'env_valid_move' : is_env_valid_move, 'non_env_valid_move' : is_non_env_valid_move , 'is_draw' : is_draw }
 
         # logging.info(f' observation : \n{observation}')
-        # logging.info(f'reward : {reward}, info : {info}')
         return observation, reward, terminated, truncated, info
 
     def render(self, mode='human'):
