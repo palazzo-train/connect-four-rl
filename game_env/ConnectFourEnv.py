@@ -110,24 +110,23 @@ class ConnectFourEnv(gym.Env):
             is_this_move_win = GameEngine.trial_drop_piece_from_top(self.board_state, trial_location, piece)
             # logging.info(f'  is this move win, : {is_this_move_win}, trial_location : {trial_location}')
             if is_this_move_win:
-                if action == trial_location:
-                    ### non env makes the right move, can return
-                    is_non_env_game_win = GameEngine.trial_drop_piece_from_top(self.board_state, action, piece)
-                    taken_right_move = True
-                    exist_must_win = True
-                    # logging.info(f'  taken must win, valid location : {action}')
-                    return exist_must_win, taken_right_move
-
                 must_win_locations.append(trial_location)
+
+        must_win_location_count = len(must_win_locations)
+        ### non env makes the right move
+        if action in must_win_locations:
+            taken_right_move = True
+            exist_must_win = True
+            # logging.info(f'  taken must win, valid location : {action}')
+            return exist_must_win, taken_right_move, must_win_location_count
 
         # logging.info(f' check must win, must win location: {must_win_locations}, len : {len(must_win_locations)}')
         # logging.info(f' sddd action in must_win: {not (action in must_win_locations)}')
         ### if there exists must-win location but non env player not take that move
-        must_win_location_count = len(must_win_locations)
         if (must_win_location_count > 0) and (not (action in must_win_locations)):
             exist_must_win = True
             taken_right_move = False
-            return exist_must_win, taken_right_move, must_win_locations
+            return exist_must_win, taken_right_move, must_win_location_count
 
         return exist_must_win, taken_right_move, must_win_location_count
 
