@@ -31,12 +31,14 @@ class ConnectFourEnv(gym.Env):
 
     STONE_STATE_NUM = 2
 
-    def __init__(self):
+    def __init__(self, options: Optional[dict] = { OPTIONS_ENV_TRAINER_MODEL: None}):
         # The size of the grid (6x7 by default). i.e. 6 rows, 7 columns
         self.game_engine = GameEngine()
         self.board_state = self.game_engine.create_board()
         self.board_obs_state = np.zeros((ConnectFourEnv.STONE_STATE_NUM,GameEngine.ROW_COUNT, GameEngine.COLUMN_COUNT))
         self.board_obs_state_for_env_trainer_model = np.zeros((ConnectFourEnv.STONE_STATE_NUM,GameEngine.ROW_COUNT, GameEngine.COLUMN_COUNT))
+
+        self.env_trainer_model = options.get(OPTIONS_ENV_TRAINER_MODEL, None)
 
         self.env_trainer_model = None
 
@@ -53,10 +55,9 @@ class ConnectFourEnv(gym.Env):
 
         self.reset()
 
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = { OPTIONS_ENV_PIECE_COLOUR : GameEngine.RED_PIECE ,
-                                                                            OPTIONS_ENV_TRAINER_MODEL : None }):
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = { OPTIONS_ENV_PIECE_COLOUR : GameEngine.RED_PIECE}):
+
         self.board_state = self.game_engine.create_board()
-        self.env_trainer_model = options.get(OPTIONS_ENV_TRAINER_MODEL, None)
         self.game_env_piece_colour = options.get(OPTIONS_ENV_PIECE_COLOUR, GameEngine.RED_PIECE)
 
         if self.game_env_piece_colour == GameEngine.RED_PIECE:

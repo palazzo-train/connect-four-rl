@@ -89,8 +89,8 @@ def training_phase():
         logging.info(f'training iteration {i} of {PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION}. loading env trainer model [{model_name}]')
         env_trainer_model = A2C.load(model_name)
 
-        env = ConnectFourEnv.ConnectFourEnv()
-        env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+        env = ConnectFourEnv.ConnectFourEnv( options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+        env.reset()
         agent_model = A2C.load(model_name, env=env)
 
 
@@ -120,7 +120,7 @@ def training_iteration(agent_model, env_trainer_model, training_iter, new_model_
     model.learn(total_timesteps= PARAMETER_MODEL_TRAINING_ITERATION_COUNT)
     model.save(new_model_name)
 
-    del model  # remove to demonstrate saving and loading
+    # del model  # remove to demonstrate saving and loading
 
     rootLogger.setLevel(logging.INFO)
     logging.info(f"training finished")
@@ -159,7 +159,7 @@ def evaluation_phase(env, env_trainer_model):
     report_interval = eval_game_count / 10
     report_interval_count = 0
     for i in range(eval_game_count):
-        obs, info = env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+        obs, info = env.reset()
         terminated = False
         truncated = False
 
@@ -218,7 +218,7 @@ def evaluation_phase(env, env_trainer_model):
 def demo_phase(env, env_trainer_model):
     model = A2C.load(MODEL_NAME_TRAINED)
 
-    obs , info = env.reset(options= { ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL:  env_trainer_model})
+    obs , info = env.reset()
     terminated = False
     truncated = False
 
@@ -235,9 +235,9 @@ def reinforcement_main():
 
     new_model_name = training_phase()
 
-    env = ConnectFourEnv.ConnectFourEnv()
     env_trainer_model = A2C.load(new_model_name)
-    env.reset(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+    env = ConnectFourEnv.ConnectFourEnv(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
+    env.reset()
 
     eval_info = evaluation_phase(env, env_trainer_model)
     logging.info(f'eval info: {eval_info}')
