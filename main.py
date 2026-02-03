@@ -38,8 +38,8 @@ def parameter_update(speed):
         PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 1
     elif speed == 1 :
         PARAMETER_EVAL_RUN_COUNT = 100
-        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 5000
-        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 2
+        PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 500
+        PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 4
     elif speed == 2:
         PARAMETER_EVAL_RUN_COUNT = 1000
         PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 20000
@@ -87,24 +87,27 @@ def training_phase():
     # rootLogger = logging.getLogger()
     # rootLogger.setLevel(logging.WARNING)
 
+    reset_num_timesteps = True
     for i in range(PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION):
         # model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i)}'
         model_name = MODEL_NAME_TRAINED
         logging.info(f'training iteration {i} of {PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION}. loading env trainer model [{model_name}]')
+        # env_trainer_model = A2C.load(model_name, verbose=1,tensorboard_log="./connect_4_tensorboard")
         env_trainer_model = A2C.load(model_name)
 
         env = ConnectFourEnv.ConnectFourEnv( options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
         env.reset()
-        agent_model = A2C.load(model_name, env=env)
+        agent_model = A2C.load(model_name, env=env, verbose=1,tensorboard_log="./connect_4_tensorboard")
 
 
         # new_model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i+ 1)}'
         new_model_name = MODEL_NAME_TRAINED
 
-        training_iteration(agent_model, env_trainer_model, i, new_model_name)
+        training_iteration(agent_model, env_trainer_model, i, new_model_name, reset_num_timesteps)
         del env_trainer_model
         del agent_model
         logging.info(f'saved new model [{new_model_name}]')
+        reset_num_timesteps = False
 
     return new_model_name
 
@@ -121,7 +124,7 @@ def create_model():
             This corresponds to the number of unit for the last layer.
         """
 
-        def __init__(self, observation_space: spaces.Box, features_dim: int = 256, net_arch: list[int] = [32 , 64, 128]):
+        def __init__(self, observation_space: spaces.Box, features_dim: int = 256, net_arch: list[int] = [32 , 64, 96]):
             super().__init__(observation_space, features_dim)
             # We assume CxHxW images (channels first)
             # Re-ordering will be done by pre-preprocessing or wrapper
@@ -156,7 +159,7 @@ def create_model():
     policy_kwargs = dict(
         net_arch= dict(vf=[64], pi=[128]),
         features_extractor_class=CustomCNN,
-        features_extractor_kwargs=dict(features_dim=128),
+        features_extractor_kwargs=dict(features_dim=128, net_arch=[64, 64, 96]),
     )
     model = A2C("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
     policy = model.policy
@@ -167,7 +170,7 @@ def create_model():
     logging.info(f'model number of trainable parameters: {total_params}')
     logging.info(f'model : {model_name} saved')
 
-def training_iteration(agent_model, env_trainer_model, training_iter, new_model_name):
+def training_iteration(agent_model, env_trainer_model, training_iter, new_model_name, reset_num_timesteps):
 
     # Set the global logging level to INFO
     rootLogger = logging.getLogger()
@@ -179,7 +182,7 @@ def training_iteration(agent_model, env_trainer_model, training_iter, new_model_
     logging.info(f'model: {model.policy}')
     # model.learn(total_timesteps=25000)
     # model.learn(total_timesteps=50000)
-    model.learn(total_timesteps= PARAMETER_MODEL_TRAINING_ITERATION_COUNT)
+    model.learn(total_timesteps= PARAMETER_MODEL_TRAINING_ITERATION_COUNT, reset_num_timesteps=reset_num_timesteps)
     model.save(new_model_name)
 
     # del model  # remove to demonstrate saving and loading
