@@ -109,6 +109,64 @@ def training_phase():
     return new_model_name
 
 
+def create_model():
+    import torch as th
+    import torch.nn as nn
+    from gymnasium import spaces
+    from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+    class CustomCNN(BaseFeaturesExtractor):
+        """
+        :param observation_space: (gym.Space)
+        :param features_dim: (int) Number of features extracted.
+            This corresponds to the number of unit for the last layer.
+        """
+
+        def __init__(self, observation_space: spaces.Box, features_dim: int = 256, net_arch: list[int] = [32 , 64, 128]):
+            super().__init__(observation_space, features_dim)
+            # We assume CxHxW images (channels first)
+            # Re-ordering will be done by pre-preprocessing or wrapper
+            n_input_channels = observation_space.shape[0]
+            self.cnn = nn.Sequential(
+                nn.Conv2d(n_input_channels, net_arch[0], kernel_size=3, stride=1, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(net_arch[0], net_arch[1], kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Conv2d(net_arch[1], net_arch[2], kernel_size=3, stride=1, padding=0),
+                nn.ReLU(),
+                nn.Flatten(),
+            )
+
+            # Compute shape by doing one forward pass
+            with th.no_grad():
+                n_flatten = self.cnn(
+                    th.as_tensor(observation_space.sample()[None]).float()
+                ).shape[1]
+
+            self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+
+        def forward(self, observations: th.Tensor) -> th.Tensor:
+            return self.linear(self.cnn(observations))
+
+
+
+    model_name = MODEL_NAME_TRAINED
+    logging.info(f'create model : {model_name}')
+    env = ConnectFourEnv.ConnectFourEnv()
+    # model = A2C("MlpPolicy", env, verbose=1, policy_kwargs={'net_arch': [128, 128, 128]})
+    policy_kwargs = dict(
+        net_arch= dict(vf=[64], pi=[128]),
+        features_extractor_class=CustomCNN,
+        features_extractor_kwargs=dict(features_dim=128),
+    )
+    model = A2C("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
+    policy = model.policy
+    total_params = sum(p.numel() for p in policy.parameters() if p.requires_grad)
+
+    model.save(model_name)
+    logging.info(f'model policy: {model.policy}')
+    logging.info(f'model number of trainable parameters: {total_params}')
+    logging.info(f'model : {model_name} saved')
+
 def training_iteration(agent_model, env_trainer_model, training_iter, new_model_name):
 
     # Set the global logging level to INFO
@@ -262,5 +320,7 @@ if __name__ == "__main__":
     init_system()
 
 
-    # supervised_main()
-    reinforcement_main()
+    if args.mode == 'train':
+        reinforcement_main()
+    elif args.mode == 'init':
+        create_model()
