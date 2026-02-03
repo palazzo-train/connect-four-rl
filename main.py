@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from datetime import datetime
 import argparse
 from game_env import ConnectFourEnv
 
@@ -84,8 +85,21 @@ def setupLogging():
 
 
 def training_phase():
+    from stable_baselines3.common.logger import TensorBoardOutputFormat
+    from torch.utils.tensorboard import SummaryWriter
+
     # rootLogger = logging.getLogger()
     # rootLogger.setLevel(logging.WARNING)
+
+    aa = [ 12 , 45 , 66 , 110, 345, 234, 290]
+
+    # Get the current date and time as a datetime object
+    now = datetime.now()
+    # Format the datetime object into a string (e.g., YYYY-MM-DD HH:MM:SS)
+    timelabel = now.strftime("%Y-%m-%d_%H.%M.%S")
+    tensorboard_log = f"./connect_4_tensorboard/{timelabel}"
+
+    tensorboard_eval_log = f"{tensorboard_log}/eval_game/"
 
     reset_num_timesteps = True
     for i in range(PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION):
@@ -97,13 +111,16 @@ def training_phase():
 
         env = ConnectFourEnv.ConnectFourEnv( options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
         env.reset()
-        agent_model = A2C.load(model_name, env=env, verbose=1,tensorboard_log="./connect_4_tensorboard")
 
-
-        # new_model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i+ 1)}'
+        agent_model = A2C.load(model_name, env=env, verbose=1,tensorboard_log=tensorboard_log)
         new_model_name = MODEL_NAME_TRAINED
 
         training_iteration(agent_model, env_trainer_model, i, new_model_name, reset_num_timesteps)
+
+
+        writer = SummaryWriter(tensorboard_eval_log)
+        writer.add_scalar('eval_game', aa[i], agent_model.num_timesteps)
+
         del env_trainer_model
         del agent_model
         logging.info(f'saved new model [{new_model_name}]')
@@ -188,7 +205,7 @@ def training_iteration(agent_model, env_trainer_model, training_iter, new_model_
     # del model  # remove to demonstrate saving and loading
 
     rootLogger.setLevel(logging.INFO)
-    logging.info(f"training finished")
+    logging.info(f"training iteration {training_iter} finished.")
 
 
 def evaluation_phase(env, env_trainer_model):
