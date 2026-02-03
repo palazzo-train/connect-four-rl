@@ -16,14 +16,14 @@ from stable_baselines3.common.utils import get_device
 
 
 MODEL_NAME_TRAINED = "connect_four"
-
-
+MODEL_NAME_EVALUATOR = "connect_four"
 
 ## quick train
 PARAMETER_EVAL_RUN_COUNT = 100
 PARAMETER_MODEL_TRAINING_ITERATION_COUNT = 5000
 PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION = 2
 
+TENSORBOARD_BASE= 'connect_4_tensorboard'
 
 
 def parameter_update(speed):
@@ -84,24 +84,11 @@ def setupLogging():
     rootLogger.setLevel(logging.INFO)
 
 
-def training_phase():
-    from stable_baselines3.common.logger import TensorBoardOutputFormat
-    from torch.utils.tensorboard import SummaryWriter
+def training_phase(tensorboard_log, reset_num_timesteps):
 
     # rootLogger = logging.getLogger()
     # rootLogger.setLevel(logging.WARNING)
 
-    aa = [ 12 , 45 , 66 , 110, 345, 234, 290]
-
-    # Get the current date and time as a datetime object
-    now = datetime.now()
-    # Format the datetime object into a string (e.g., YYYY-MM-DD HH:MM:SS)
-    timelabel = now.strftime("%Y-%m-%d_%H.%M.%S")
-    tensorboard_log = f"./connect_4_tensorboard/{timelabel}"
-
-    tensorboard_eval_log = f"{tensorboard_log}/eval_game/"
-
-    reset_num_timesteps = True
     for i in range(PARAMETER_MODEL_TRAINING_MODEL_SWAP_ITERATION):
         # model_name = f'{MODEL_NAME_TRAINED}_iter_{str(i)}'
         model_name = MODEL_NAME_TRAINED
@@ -117,9 +104,6 @@ def training_phase():
 
         training_iteration(agent_model, env_trainer_model, i, new_model_name, reset_num_timesteps)
 
-
-        writer = SummaryWriter(tensorboard_eval_log)
-        writer.add_scalar('eval_game', aa[i], agent_model.num_timesteps)
 
         del env_trainer_model
         del agent_model
@@ -208,9 +192,18 @@ def training_iteration(agent_model, env_trainer_model, training_iter, new_model_
     logging.info(f"training iteration {training_iter} finished.")
 
 
-def evaluation_phase(env, env_trainer_model):
+def evaluation_phase(tensorboard_log):
+    from torch.utils.tensorboard import SummaryWriter
+
     logging.info(f'evaluation phase')
+    tensorboard_eval_log = f"{tensorboard_log}/eval_game/"
+
     model = A2C.load(MODEL_NAME_TRAINED)
+    evaluator_model_name = MODEL_NAME_EVALUATOR
+
+    env_evaluator_model = A2C.load(evaluator_model_name)
+    eval_env = ConnectFourEnv.ConnectFourEnv(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_evaluator_model})
+    eval_env.reset()
 
     rootLogger = logging.getLogger()
     rootLogger.setLevel(logging.WARNING)
@@ -241,13 +234,13 @@ def evaluation_phase(env, env_trainer_model):
     report_interval = eval_game_count / 10
     report_interval_count = 0
     for i in range(eval_game_count):
-        obs, info = env.reset()
+        obs, info = eval_env.reset()
         terminated = False
         truncated = False
 
         while (not terminated) and (not truncated):
             action, _states = model.predict(obs)
-            observation, reward, terminated, truncated, info = env.step(action)
+            observation, reward, terminated, truncated, info = eval_env.step(action)
 
         if report_interval_count > report_interval:
             report_interval_count = 0
@@ -294,6 +287,10 @@ def evaluation_phase(env, env_trainer_model):
             'miss_must_win_count' : miss_must_win_count ,
             'miss_must_defense_count' : miss_must_defense_count }
 
+    writer = SummaryWriter(tensorboard_eval_log)
+    for d in eval_info:
+        writer.add_scalar(f'eval_game/{d}', eval_info[d], model.num_timesteps)
+
     return eval_info
 
 
@@ -313,19 +310,31 @@ def demo_phase(env, env_trainer_model):
 
 
 def reinforcement_main():
-    # environments
+    # Get the current date and time as a datetime object
+    now = datetime.now()
+    # Format the datetime object into a string (e.g., YYYY-MM-DD HH:MM:SS)
+    timelabel = now.strftime("%Y-%m-%d_%H.%M.%S")
+    tensorboard_log = f"./{TENSORBOARD_BASE}/{timelabel}"
+    reset_num_timesteps = True
 
-    new_model_name = training_phase()
+    for i in range(10):
+        learning_and_eval_loop(tensorboard_log, reset_num_timesteps)
+        reset_num_timesteps = False
+
+def learning_and_eval_loop(tensorboard_log, reset_num_timesteps):
+    new_model_name = training_phase(tensorboard_log, reset_num_timesteps)
 
     env_trainer_model = A2C.load(new_model_name)
     env = ConnectFourEnv.ConnectFourEnv(options={ConnectFourEnv.OPTIONS_ENV_TRAINER_MODEL: env_trainer_model})
     env.reset()
 
-    eval_info = evaluation_phase(env, env_trainer_model)
+    eval_info = evaluation_phase(tensorboard_log)
+
     logging.info(f'eval info: {eval_info}')
     demo_phase(env, env_trainer_model)
 
     logging.info(f'end')
+
 
 if __name__ == "__main__":
     setupLogging()
